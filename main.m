@@ -9,12 +9,6 @@ load('CheetahSysID.mat');
 model = Cheetah3LegModel();
 
 %% Data Setup
-
-% Option to regenerate the regressors.
-% The regressors are provided in the dataset, 
-% but here's how you can compute them
-regenerate_regressors = 0;
-
 N = length(Y);
 n_links = 3; % # of conventional links
 n_rotors= 3; % # of rigid-bodies modeled for rotors
@@ -24,17 +18,6 @@ n_dofs  = length(qd{1});
 % Time vector
 dt = 1e-3;
 t = (0:(length(q)-1))*dt;
-
-if regenerate_regressors
-   Y = {};
-   for i =1:N
-       if mod(i,10) == 0
-           fprintf('%d / %d Regressors Computed\n',i,N);
-       end
-       [Y_i, Yrot_i] = RegressorClassical( model, q{i}, qd{i},qdd{i});
-       Y{i} = [Y_i Yrot_i];
-    end
-end
 
 % Setup Friction Regressor
 B = repmat({zeros(n_dofs,n_dofs)}, N,1 );
