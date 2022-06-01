@@ -1,0 +1,3 @@
+[submodule "spatial_v2_extended"]
+	path = spatial_v2_extended
+	url = git@github.com:ROAM-Lab-ND/spatial_v2_extended.git
