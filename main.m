@@ -32,7 +32,7 @@ if regenerate_regressors
            fprintf('%d / %d Regressors Computed\n',i,N);
        end
        [Y_i, Yrot_i] = RegressorClassical( model, q{i}, qd{i},qdd{i});
-       Y{i} = [Y_i Yrot_i];
+       Y{i,1} = [Y_i Yrot_i];
     end
 end
 
@@ -66,7 +66,7 @@ tau_train = tau_stack(1:n_dofs*N_train,:);
 prior_params = {};
 for i = 1:n_links
     prior_params{i}         = inertiaMatToVec( model.I{i}    );
-    prior_params{i+n_links} = inertiaMatToVec( model.Irot{i} );
+    prior_params{i+n_links} = inertiaMatToVec( model.I_rotor{i} );
 end
 for i = 1:n_bodies
     J_prior{i} = inertiaVecToPinertia(prior_params{i});

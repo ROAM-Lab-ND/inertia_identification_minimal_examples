@@ -42,11 +42,12 @@ Nb = Nb+1;
 
 model.parent(Nb) = 0;
 model.jtype{Nb}  = 'Rx';
+model.jtype_rotor{Nb}  = 'Rx';
 model.Xtree{Nb}  = plux(eye(3), [0 0 0]);
 model.Xrotor{Nb} = plux(eye(3), [0 -side_sign*lc 0]');
 
 model.I{Nb}      = mcI(1.5, [0 side_sign*lo 0], boxInertia(1.5, ones(3,1)*motorWidth));
-model.Irot{Nb}   = mcI(.5, [0 0 0], boxInertia(.5, [.25 1 1]'*motorWidth));
+model.I_rotor{Nb}   = mcI(.5, [0 0 0], boxInertia(.5, [.25 1 1]'*motorWidth));
 
 graphics{Nb}.boundCenter = [0 side_sign*lo 0]';
 graphics{Nb}.boundAxes   = [motorWidth motorWidth motorWidth]/2*1.8;
@@ -61,11 +62,12 @@ model.gr{Nb}     = 10.604;
 Nb = Nb+1;
 model.parent(Nb) = Nb-1;
 model.jtype{Nb}  = 'Ry';
+model.jtype_rotor{Nb}  = 'Ry';
 model.Xtree{Nb}  = plux(rz(pi), [0 side_sign*lo 0]');
 model.Xrotor{Nb} = plux(rz(pi), [0 side_sign*lo 0]');
 
 model.I{Nb}      = mcI(.5, [0 0 -l1]/2, boxInertia(.5,[legRad*2 legRad*2 l1]) );
-model.Irot{Nb}   = mcI(.5, [0 0 0]/2, boxInertia(.5, [1 .25 1]'*motorWidth) );
+model.I_rotor{Nb}   = mcI(.5, [0 0 0]/2, boxInertia(.5, [1 .25 1]'*motorWidth) );
 
 model.gr{Nb} = 10.604;
 
@@ -81,12 +83,14 @@ graphics{Nb}.boundAxesRot   = [motorWidth motorWidth motorWidth]/2*1.8;
 Nb = Nb+1;
 model.parent(Nb) = Nb-1;
 model.jtype{Nb}  = 'Ry';
+model.jtype_rotor{Nb}  = 'Ry';
+
 
 model.Xtree{Nb}  = plux(eye(3), [0 0 -l1]');
 model.Xrotor{Nb}  = plux(eye(3), [0 0  0 ]');
 
 model.I{Nb}     = mcI(.5, [0 0 -l2/2], boxInertia(.5,[legRad*2 legRad*2 l2]) );
-model.Irot{Nb}  = mcI(.5, [0 0 0    ], boxInertia(.5,[1 .25 1]'*motorWidth)  );
+model.I_rotor{Nb}  = mcI(.5, [0 0 0    ], boxInertia(.5,[1 .25 1]'*motorWidth)  );
 model.gr{Nb} = 10.604; 
 
 model.NB   = Nb;
@@ -98,10 +102,6 @@ graphics{Nb}.boundAxes   = [legRad*2 legRad*2 l2*1.2]/2*1.4;
 graphics{Nb}.boundCenterRot = [0 0 0]';
 graphics{Nb}.boundAxesRot   = [motorWidth motorWidth motorWidth]/2*1.8;
 
-
-
-
-
 mT = 0;
 for i = 1:length(model.I)
     mT = mT+model.I{i}(6,6);
@@ -109,6 +109,9 @@ end
 %mT
 
 model.NB   = Nb;
+
+model.has_rotor=[1 1 1]';
+model = postProcessModel(model);
 
 end
 
