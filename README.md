@@ -6,7 +6,7 @@ This repository contains a minimal working MATLAB example of the methods describ
 
 and
 
-*Geometric Robot Dynamic Identification: A Convex Programming Approach* by Lee, Wensing, and Park ([link](https://ieeexplore.ieee.org/document/8922724))
+*Geometric Robot Dynamic Identification: A Convex Programming Approach* by Lee, Wensing, and Park ([link](https://ieeexplore.ieee.org/document/8922724), [supplemental repo](https://github.com/alex07143/Geometric-Robot-DynID))
 
 The repository requires you to have [CVX](http://cvxr.com/cvx/) installed and accessible in your MATLAB path. 
 
