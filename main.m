@@ -3,10 +3,19 @@ fileInfo = dir(matlab.desktop.editor.getActiveFilename);
 cd(fileInfo.folder);
 
 clear
+close all
 init_path
-
+%% Load Data
 load('CheetahSysID.mat');
 model = Cheetah3LegModel();
+
+%% Load Object files
+disp("loading CAD mesh files (this may take a while)")
+obj = cell(3,1);
+obj{1} = readObj('c3_body.obj');
+obj{2} = readObj('c3_upper_link.obj'); % Contains Ab/Ad & Thigh links
+obj{3} = readObj('c3_lower_link.obj'); % Shank link
+disp("loaded CAD mesh files")
 
 %% Data Setup
 N = length(Y);
@@ -62,15 +71,18 @@ tau_train = tau_stack(1:n_dofs*N_train,:);
 %% Prior
 % The parameter order for each link is: 
 % m, h_x, h_y, h_z, I_xx, I_yy, I_zz, I_yz, I_xz, I_xy
-prior_params = {};
-for i = 1:n_links
-    prior_params{i}         = inertiaMatToVec( model.I{i}    );
-    prior_params{i+n_links} = inertiaMatToVec( model.I_rotor{i} );
-end
-for i = 1:n_bodies
-    J_prior{i} = inertiaVecToPinertia(prior_params{i});
-end
 
+[pi_prior, ... % Prior parameters
+    J_prior, ... % Prior Pseudo-inertias
+      Q_bound] ... % Bounding Ellipsoids S={ x | [x ; 1]'*Q*[x ; 1] >= 0 }
+      = Cheetah3_prior_inertia_CAD();
+
+figure(1); clf;
+color = rand(6,3);
+title('Bounding Ellipses');
+Cheetah_bound_visualize(obj, Q_bound, color)
+  
+  
 %% Conventional System ID with Entropic Regularization
 
 fprintf('=========== Convex Approach (SDP with LMIs) =========\n');
@@ -84,8 +96,9 @@ cvx_end
 % Set solver
 cvx_solver mosek % <- Can be changed if you don't have it.
 
-weight_regularization = 1e-2;
+weight_regularization = 1e-1;
 use_const_pullback_approx = 0;
+force_ellipsoid_density_realizability = 1;
 
 cvx_begin
     variable params(10,n_bodies)  % inertial params of links / rotors (units vary)
@@ -108,8 +121,8 @@ cvx_begin
                             + trace(J_prior{i} \ J(:,:,i) ) - 4;
         else
             % constant pullback approximation
-            M{i} = pullbackMetric(prior_params{i});
-            bregman(i) = 1/2*(params(:,i) - prior_params{i})'*M{i}*(params(:,i) - prior_params{i});
+            M{i} = pullbackMetric(pi_prior(:,i));
+            bregman(i) = 1/2*(params(:,i) - prior_params(:,i))'*M{i}*(params(:,i) - prior_params(:,i));
         end
     end
     
@@ -121,11 +134,30 @@ cvx_begin
     subject to:
         for i=1:n_bodies
             J(:,:,i) == inertiaVecToPinertia( params(:,i) );
+            if force_ellipsoid_density_realizability
+                trace( J(:,:,i)*Q_bound{i}  ) >= 0;
+            end
         end
 cvx_end
 
+%%
 tau_predict_entropic = reshape(Y_stack*params(:) + B_stack*b + Bc_stack*bc,n_dofs,N)';
-plotTorquePredictions(1,'Convex, Entropic Regularized',t,tau_mat, tau_predict_entropic);
+plotTorquePredictions(2,'Convex, Entropic Regularized',t,tau_mat, tau_predict_entropic);
+
+
+% Visualize inertia and CAD
+color = rand(6,3);
+figure(3); clf;
+
+% Represents the inertial params by solid ellipsoid of uniform density
+% Note: This solid need not be within the bounding ellipsoid since
+%       it represents but one density distribution that realizes the 
+%       parameters
+Cheetah_ellipsoid_visualize(obj,params, color);
+
+grid on;
+xlabel('x[m]'); ylabel('y[m]'); zlabel('z[m]');
+title('Inertia Ellipsoids (Convex, Entropic Regularized)');
 
 
 %% Unconstrained System ID with Entropic Regularization
@@ -143,7 +175,7 @@ options.Display = 'iter';
 
 data.Y   = [Y_train B_train Bc_train];
 data.tau = tau_train;
-data.prior = cell2mat(prior_params);
+data.prior = pi_prior;
 data.gamma = weight_regularization;
 
 x_init = zeros(66,1);    
@@ -157,13 +189,22 @@ piParams = systemParamMap( cholParams, data.prior );
 
 tau_predic_logchol = reshape(Y_total*piParams - tau_stack, n_dofs,N)';
 
-plotTorquePredictions(2,'Log Cholesky, Entropic Regularized',t,tau_mat, tau_predict_entropic);
+plotTorquePredictions(4,'Log Cholesky, Entropic Regularized',t,tau_mat, tau_predict_entropic);
+
+
+% Visualize inertia and CAD
+color = rand(6,3);
+figure(5); clf;
+Cheetah_ellipsoid_visualize(obj,reshape(piParams(1:60),10,6), color);
+grid on;
+xlabel('x[m]'); ylabel('y[m]'); zlabel('z[m]');
+title('Inertia Ellipsoids (Log Cholesky, Entropic Regularized)');
+
 
 
 %% Kinematics Plotting
 q_mat = cell2mat(q')';
-figure(3)
-clf
+figure(6); clf;
 subplot(311);
 plot(t,q_mat(:,1))
 ylabel('Ab/Ad angle (rad)');
@@ -176,44 +217,8 @@ plot(t,q_mat(:,3))
 ylabel('Knee angle (rad)');
 xlabel('Time (s)');
 
-%% Helpers
-function RMS= rms(varargin)
-    %
-    % Written by Phillip M. Feldman  March 31, 2006
-    %
-    % rms computes the root-mean-square (RMS) of values supplied as a
-    % vector, matrix, or list of discrete values (scalars).  If the input is
-    % a matrix, rms returns a row vector containing the RMS of each column.
-    % David Feldman proposed the following simpler function definition:
-    %
-    %    RMS = sqrt(mean([varargin{:}].^2))
-    %
-    % With this definition, the function accepts ([1,2],[3,4]) as input,
-    % producing 2.7386 (this is the same result that one would get with
-    % input of (1,2,3,4).  I'm not sure how the function should behave for
-    % input of ([1,2],[3,4]).  Probably it should produce the vector
-    % [rms(1,3) rms(2,4)].  For the moment, however, my code simply produces
-    % an error message when the input is a list that contains one or more
-    % non-scalars.
-    if (nargin == 0)
-       error('Missing input.');
-    end
-    % Section 1: Restructure input to create x vector.
-    if (nargin == 1)
-       x= varargin{1};
-    else
-       for i= 1 : size(varargin,2)
-          if (prod(size(varargin{i})) ~= 1)
-             error(['When input is provided as a list, ' ...
-                    'list elements must be scalar.']);
-          end
-          x(i)= varargin{i};
-       end
-    end
-    % Section 2: Compute RMS value of x.
-    RMS= sqrt (mean (x .^2) );
-end
 
+%% Helpers
 function plotTorquePredictions(figNum, name, t, tau_actual , tau_predict)
     tau_rms = rms(tau_actual - tau_predict);
     figure(figNum)
