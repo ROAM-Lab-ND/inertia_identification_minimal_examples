@@ -122,7 +122,7 @@ cvx_begin
         else
             % constant pullback approximation
             M{i} = pullbackMetric(pi_prior(:,i));
-            bregman(i) = 1/2*(params(:,i) - prior_params(:,i))'*M{i}*(params(:,i) - prior_params(:,i));
+            bregman(i) = 1/2*(params(:,i) - pi_prior(:,i))'*M{i}*(params(:,i) - pi_prior(:,i));
         end
     end
     
