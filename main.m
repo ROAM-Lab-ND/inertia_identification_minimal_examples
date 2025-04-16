@@ -187,9 +187,9 @@ cholParams = fminunc( @(x) objective(x, data), x_init,options );
 piParams = systemParamMap( cholParams, data.prior );
 
 
-tau_predic_logchol = reshape(Y_total*piParams - tau_stack, n_dofs,N)';
+tau_predic_logchol = reshape(Y_total*piParams, n_dofs,N)';
 
-plotTorquePredictions(4,'Log Cholesky, Entropic Regularized',t,tau_mat, tau_predict_entropic);
+plotTorquePredictions(4,'Log Cholesky, Entropic Regularized',t,tau_mat, tau_predic_logchol);
 
 
 % Visualize inertia and CAD
